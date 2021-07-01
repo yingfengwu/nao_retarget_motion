@@ -429,7 +429,7 @@ def main(txt_data):
                                        txt_data['start_frame'], txt_data['end_frame'])
 
         num_markers = joint_pos_data.shape[-1] // POS_SIZE
-        marker_ids = build_markers(num_markers)  # build the key points 2-28 represents joints(x,y,z)
+        marker_ids = build_markers(num_markers)  # build the key points
 
         retarget_frames = retarget_motion(robot, joint_pos_data, txt_data['motion_name'], init_rot)
         output_motion(retarget_frames, txt_data['output_path'], txt_data['frame_duration'])
