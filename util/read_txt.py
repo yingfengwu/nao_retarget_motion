@@ -3,7 +3,6 @@ def read_txt_file(file_path):
     name = []
     value = []
     dict_data = {}
-    # flag = -1
     str_data = ''
     try:
         f = open(file_path)

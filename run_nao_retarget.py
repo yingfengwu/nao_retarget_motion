@@ -207,24 +207,22 @@ def retarget_root_pose(ref_joint_pos, get_motion_name, init_rotation):
     left_hip_pos = ref_joint_pos[REF_HIP_JOINT_IDS[3]]
     right_hip_pos = ref_joint_pos[REF_HIP_JOINT_IDS[2]]
 
-    up_dir = neck_pos - pelvis_pos  # 向量相减，具体可查看几何意义
-    # up_dir += config.FORWARD_DIR_OFFSET
-    up_dir = up_dir / np.linalg.norm(up_dir)  # 单位化
+    up_dir = neck_pos - pelvis_pos  # vector difference
+    up_dir = up_dir / np.linalg.norm(up_dir)  # unitize
 
     delta_shoulder = left_shoulder_pos - right_shoulder_pos
     delta_hip = left_hip_pos - right_hip_pos
-    dir_shoulder = delta_shoulder / np.linalg.norm(delta_shoulder)  # 单位化
-    dir_hip = delta_hip / np.linalg.norm(delta_hip)  # 单位化
+    dir_shoulder = delta_shoulder / np.linalg.norm(delta_shoulder)
+    dir_hip = delta_hip / np.linalg.norm(delta_hip)    # unitize
 
     # left_dir = 0.66 * (dir_shoulder + dir_hip)
     left_dir = dir_hip
 
-    forward_dir = np.cross(up_dir, left_dir)  # 获得方向向前的向量,法向量
-    forward_dir = forward_dir / np.linalg.norm(forward_dir)  # 单位化
+    forward_dir = np.cross(up_dir, left_dir)
+    forward_dir = forward_dir / np.linalg.norm(forward_dir)
 
     left_dir = np.cross(forward_dir, up_dir)
-    # left_dir[2] = 0.0   # make the base more stable
-    left_dir = left_dir / np.linalg.norm(left_dir)  # 单位化
+    left_dir = left_dir / np.linalg.norm(left_dir)  # unitize
 
     rot_mat = np.array([[forward_dir[0], left_dir[0], up_dir[0], 0],
                       [forward_dir[1], left_dir[1], up_dir[1], 0],
@@ -235,7 +233,7 @@ def retarget_root_pose(ref_joint_pos, get_motion_name, init_rotation):
         root_pos[2] -= 0.10
     elif get_motion_name == 'jump':
         root_pos = pelvis_pos
-        root_pos[2] -= 0.12   # 将机器人上移0.12
+        root_pos[2] -= 0.12   # let robot move upward 0.12
 
         global lock, limit_root_low
         if lock == 0:
@@ -254,11 +252,11 @@ def retarget_root_pose(ref_joint_pos, get_motion_name, init_rotation):
     return root_pos, root_rot
 
 
-# compute the pose of nao for every frame
+# compute the pose of nao in every frame
 def retarget_pose(robot, default_pose, ref_joint_pos, _motion_name, init_rot):
     joint_lim_low, joint_lim_high = get_joint_limits(robot)
 
-    root_pos, root_rot = retarget_root_pose(ref_joint_pos, _motion_name, init_rot)  # config.INIT_POS, config.INIT_ROT
+    root_pos, root_rot = retarget_root_pose(ref_joint_pos, _motion_name, init_rot)  # INIT_POS, INIT_ROT
     root_pos += config.SIM_ROOT_OFFSET
 
     pybullet.resetBasePositionAndOrientation(robot, root_pos, root_rot)
@@ -291,25 +289,15 @@ def retarget_pose(robot, default_pose, ref_joint_pos, _motion_name, init_rot):
         toe_offset_world = QuaternionRotatePoint(toe_offset_local, heading_rot)
         mid_offset_world = QuaternionRotatePoint(mid_offset_local, heading_rot)
 
-        ref_hip_toe_delta = ref_toe_pos - ref_hip_pos  # ref运动的向量相减，具体可查看几何意义
-        sim_tar_toe_pos = sim_hip_pos + ref_hip_toe_delta  # sim中的NAO机器人加上ref中的toe和hip位置之差
-        # sim_tar_toe_pos[2] = ref_toe_pos[2]
-        # sim_tar_toe_pos += toe_offset_world
+        ref_hip_toe_delta = ref_toe_pos - ref_hip_pos
+        sim_tar_toe_pos = sim_hip_pos + ref_hip_toe_delta
 
         ref_hip_mid_delta = ref_mid_pos - ref_hip_pos
         sim_tar_mid_pos = sim_mid_pos + ref_hip_mid_delta
-        # sim_tar_mid_pos[2] = ref_mid_pos[2]
-        # sim_tar_mid_pos += mid_offset_world
-
-        # ref_mid_toe_delta = ref_mid_pos - ref_toe_pos
-        # sim_tar_toe_pos1 = sim_mid_pos + ref_mid_toe_delta
-        # sim_tar_toe_pos1[2] = ref_mid_pos[2]
-        # sim_tar_toe_pos1 += toe_offset_world
 
         tar_toe_mid_pos.append(sim_tar_toe_pos)
         tar_toe_mid_pos.append(sim_tar_mid_pos)
-        # tar_toe_mid_pos.append(sim_tar_toe_pos1)
-    # depending on the state of toe, the relative position of all joints can be acquirred
+    # depending on the state of toe, the relative position of all joints can be acquired
     joint_pose = pybullet.calculateInverseKinematics2(robot, config.SIM_TOE_MID_JOINT_IDS,
                                                       tar_toe_mid_pos,
                                                       jointDamping=config.JOINT_DAMPING,
@@ -340,24 +328,24 @@ def load_ref_data(MOTION_NAME, JOINT_POS_FILENAME, FRAME_START, FRAME_END):
     joint_pos_data = joint_pos_data.values[:, 2:REF_jOINT_NUM*3+2]
     if MOTION_NAME == 'walk':
         for frame in range(joint_pos_data.shape[0]):
-            joint_pos_data[frame][1 * 3 + 2] -= 0.1   # rightshoulder 往2方向外移0.1，(0,1,2)=(y,x,z)
-            joint_pos_data[frame][4 * 3 + 2] += 0.1   # leftshoulder 往外移
-            joint_pos_data[frame][2 * 3 + 1] -= 0.13  # rightforearm 往下移
-            joint_pos_data[frame][2 * 3 + 0] -= 0.02  # rightforearm 往外移
-            joint_pos_data[frame][3 * 3 + 1] -= 0.1   # rightarm     往下移
-            joint_pos_data[frame][5 * 3 + 1] -= 0.13  # leftforearm 往下移
-            joint_pos_data[frame][5 * 3 + 0] += 0.02  # leftforearm 往外移
-            joint_pos_data[frame][6 * 3 + 1] -= 0.1   # leftarm     往下移
+            joint_pos_data[frame][1 * 3 + 2] -= 0.1   # rightshoulder move outward 0.1  (0,1,2)=(y,x,z)
+            joint_pos_data[frame][4 * 3 + 2] += 0.1   # leftshoulder
+            joint_pos_data[frame][2 * 3 + 1] -= 0.13  # rightforearm
+            joint_pos_data[frame][2 * 3 + 0] -= 0.02  # rightforearm
+            joint_pos_data[frame][3 * 3 + 1] -= 0.1   # rightarm
+            joint_pos_data[frame][5 * 3 + 1] -= 0.13  # leftforearm
+            joint_pos_data[frame][5 * 3 + 0] += 0.02  # leftforearm
+            joint_pos_data[frame][6 * 3 + 1] -= 0.1   # leftarm
     elif MOTION_NAME == 'jump':
         for frame in range(joint_pos_data.shape[0]):
-            joint_pos_data[frame][1 * 3 + 0] -= 0.1   # rightshoulder 往2方向外移0.1，(0,1,2)=(y,x,z)
-            joint_pos_data[frame][4 * 3 + 0] += 0.1   # leftshoulder 往外移
-            joint_pos_data[frame][2 * 3 + 1] -= 0.13  # rightforearm 往下移
-            joint_pos_data[frame][2 * 3 + 0] -= 0.02  # rightforearm 往外移
-            joint_pos_data[frame][3 * 3 + 1] -= 0.1   # rightarm     往下移
-            joint_pos_data[frame][5 * 3 + 1] -= 0.13  # leftforearm 往下移
-            joint_pos_data[frame][5 * 3 + 0] += 0.02  # leftforearm 往外移
-            joint_pos_data[frame][6 * 3 + 1] -= 0.1   # leftarm     往下移
+            joint_pos_data[frame][1 * 3 + 0] -= 0.1   # rightshoulder
+            joint_pos_data[frame][4 * 3 + 0] += 0.1   # leftshoulder
+            joint_pos_data[frame][2 * 3 + 1] -= 0.13  # rightforearm
+            joint_pos_data[frame][2 * 3 + 0] -= 0.02  # rightforearm
+            joint_pos_data[frame][3 * 3 + 1] -= 0.1   # rightarm
+            joint_pos_data[frame][5 * 3 + 1] -= 0.13  # leftforearm
+            joint_pos_data[frame][5 * 3 + 0] += 0.02  # leftforearm
+            joint_pos_data[frame][6 * 3 + 1] -= 0.1   # leftarm
 
     return joint_pos_data
 
@@ -379,7 +367,6 @@ def retarget_motion(robot, joint_pos_data, motion_name, init_rotat):
 
         new_frames[f] = curr_pose
 
-    # new_frames[:, 0:2] -= new_frames[0, 0:2]
     return new_frames
 
 
@@ -417,11 +404,9 @@ def output_motion(frames, out_filename, frame_duration):
 
 
 def main(txt_data):
-    # p.connect(p.GUI, options="--width=1920 --height=1080 --mp4=\"test.mp4\" --mp4fps=60")
     simulation_manager = SimulationManager()
     client = simulation_manager.launchSimulation(gui=True, auto_step=False)
 
-    # p.configureDebugVisualizer(p.COV_ENABLE_SINGLE_STEP_RENDERING, 1)
     pybullet.setAdditionalSearchPath(pd.getDataPath())
     init_rot = transformations.quaternion_from_euler(txt_data['init_rot'][0], txt_data['init_rot'][1],
                                                      txt_data['init_rot'][2], axes="sxyz")
@@ -444,7 +429,7 @@ def main(txt_data):
                                        txt_data['start_frame'], txt_data['end_frame'])
 
         num_markers = joint_pos_data.shape[-1] // POS_SIZE
-        marker_ids = build_markers(num_markers)  # 构建关键点 2-28 represents joints(x,y,z)
+        marker_ids = build_markers(num_markers)  # build the key points 2-28 represents joints(x,y,z)
 
         retarget_frames = retarget_motion(robot, joint_pos_data, txt_data['motion_name'], init_rot)
         output_motion(retarget_frames, txt_data['output_path'], txt_data['frame_duration'])
@@ -452,7 +437,7 @@ def main(txt_data):
         f = 0
         num_frames = joint_pos_data.shape[0]
 
-        for repeat in range (5*num_frames):
+        for repeat in range(5*num_frames):
             time_start = time.time()
 
             f_idx = f % num_frames
@@ -476,12 +461,10 @@ def main(txt_data):
             sleep_dur = max(0, sleep_dur)
 
             time.sleep(sleep_dur)
-            #time.sleep(0.5) # jp hack
         for m in marker_ids:
             pybullet.removeBody(m)
 
     pybullet.disconnect()
-
     return
 
 
